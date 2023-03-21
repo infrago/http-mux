@@ -2,6 +2,7 @@ package http_default
 
 import (
 	"github.com/infrago/http"
+	"github.com/infrago/infra"
 )
 
 func Driver() http.Driver {
@@ -9,5 +10,5 @@ func Driver() http.Driver {
 }
 
 func init() {
-	http.Register("default", Driver())
+	infra.Register("default", Driver())
 }
