@@ -1,2 +1,2 @@
 # http-default
-infra.Go default http driver.
+infra.Go mux http driver.

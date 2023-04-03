@@ -1,3 +1,3 @@
-module github.com/infrago/http-default
+module github.com/infrago/http-mux
 
 go 1.17

@@ -1,4 +1,4 @@
-package http_default
+package http_mux
 
 import (
 	"context"
@@ -15,28 +15,27 @@ import (
 //------------------------- 默认事件驱动 begin --------------------------
 
 const (
-	defaultSeparator = "|||"
+	muxSeparator = "|||"
 )
 
 type (
-	defaultDriver  struct{}
-	defaultConnect struct {
+	muxDriver  struct{}
+	muxConnect struct {
 		mutex   sync.RWMutex
 		actives int64
 
-		config http.Config
+		// config http.Config
+		instance *http.Instance
 
 		server *nethttp.Server
 		router *mux.Router
-
-		delegate http.Delegate
 
 		routes map[string]*mux.Route
 	}
 
 	//响应对象
-	defaultThread struct {
-		connect  *defaultConnect
+	muxThread struct {
+		connect  *muxConnect
 		name     string
 		site     string
 		params   Map
@@ -46,45 +45,22 @@ type (
 )
 
 // 连接
-func (driver *defaultDriver) Connect(config http.Config) (http.Connect, error) {
-	return &defaultConnect{
-		config: config, routes: map[string]*mux.Route{},
+func (driver *muxDriver) Connect(inst *http.Instance) (http.Connect, error) {
+	return &muxConnect{
+		instance: inst, routes: map[string]*mux.Route{},
 	}, nil
 }
 
 // 打开连接
-func (this *defaultConnect) Open() error {
+func (this *muxConnect) Open() error {
 	this.router = mux.NewRouter()
 	this.server = &nethttp.Server{
-		Addr:         fmt.Sprintf("%s:%d", this.config.Host, this.config.Port),
+		Addr:         fmt.Sprintf("%s:%d", this.instance.Config.Host, this.instance.Config.Port),
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      this.router,
 	}
-
-	return nil
-}
-func (this *defaultConnect) Health() (http.Health, error) {
-	//this.mutex.RLock()
-	//defer this.mutex.RUnlock()
-	return http.Health{Workload: this.actives}, nil
-}
-
-// 关闭连接
-func (this *defaultConnect) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	return this.server.Shutdown(ctx)
-}
-
-// 注册回调
-func (this *defaultConnect) Accept(delegate http.Delegate) error {
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-
-	//保存回调
-	this.delegate = delegate
 
 	//先注册一个接入全部请求的
 	this.router.NotFoundHandler = this
@@ -92,9 +68,21 @@ func (this *defaultConnect) Accept(delegate http.Delegate) error {
 
 	return nil
 }
+func (this *muxConnect) Health() (http.Health, error) {
+	//this.mutex.RLock()
+	//defer this.mutex.RUnlock()
+	return http.Health{Workload: this.actives}, nil
+}
+
+// 关闭连接
+func (this *muxConnect) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	return this.server.Shutdown(ctx)
+}
 
 // 订阅者，注册事件
-func (this *defaultConnect) Register(name string, info http.Info) error {
+func (this *muxConnect) Register(name string, info http.Info) error {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -111,7 +99,7 @@ func (this *defaultConnect) Register(name string, info http.Info) error {
 	return nil
 }
 
-func (this *defaultConnect) Start() error {
+func (this *muxConnect) Start() error {
 	if this.server == nil {
 		panic("Invalid http this.")
 	}
@@ -125,7 +113,7 @@ func (this *defaultConnect) Start() error {
 
 	return nil
 }
-func (this *defaultConnect) StartTLS(certFile, keyFile string) error {
+func (this *muxConnect) StartTLS(certFile, keyFile string) error {
 	if this.server == nil {
 		panic("Invalid http this.")
 	}
@@ -140,7 +128,7 @@ func (this *defaultConnect) StartTLS(certFile, keyFile string) error {
 	return nil
 }
 
-func (this *defaultConnect) ServeHTTP(res nethttp.ResponseWriter, req *nethttp.Request) {
+func (this *muxConnect) ServeHTTP(res nethttp.ResponseWriter, req *nethttp.Request) {
 	name := ""
 	params := Map{}
 
@@ -155,7 +143,7 @@ func (this *defaultConnect) ServeHTTP(res nethttp.ResponseWriter, req *nethttp.R
 	}
 
 	// 有请求都发，404也转过去
-	this.delegate.Serve(name, params, res, req)
+	this.instance.Serve(name, params, res, req)
 }
 
 //------------------------- 默认HTTP驱动 end --------------------------

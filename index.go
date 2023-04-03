@@ -1,4 +1,4 @@
-package http_default
+package http_mux
 
 import (
 	"github.com/infrago/http"
@@ -6,9 +6,9 @@ import (
 )
 
 func Driver() http.Driver {
-	return &defaultDriver{}
+	return &muxDriver{}
 }
 
 func init() {
-	infra.Register("default", Driver())
+	infra.Register("mux", Driver())
 }
